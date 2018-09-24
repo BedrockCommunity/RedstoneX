@@ -20,8 +20,10 @@ class Redstone extends Transparent {
     /** @var int $id */
     protected $id = RedstoneX::REDSTONE_WIRE;
 
-    /** @var  $meta */
+    /** @var $meta */
     public $meta = 0;
+
+    public $ticksSinceSignalUpdate = 0;
 
     /**
      * Redstone constructor.
@@ -43,13 +45,27 @@ class Redstone extends Transparent {
      * @return int
      */
     public function onUpdate(int $type) {
+        //$this->activateRedstone();
+        //$this->deactivateRedstone();
+
         $this->activateRedstone();
-        $this->deactivateRedstone();
+
         return $type;
     }
 
     public function place(Item $item, Block $blockReplace, Block $blockClicked, int $face, Vector3 $facePos, Player $player = \null) : bool{
         $below = $this->getSide(Vector3::SIDE_DOWN);
+
+        $foundRedstone = \false;
+        for ($x = $this->getX() - 1; $x <= $this->getX() + 1; $x++) {
+            for ($y = $this->getY() - 1; $y <= $this->getY() + 1; $y++) {
+              $block = $this->getLevel()->getBlock(new Vector3($x, $y, $this->getZ()));
+
+              RedstoneX::consoleDebug(get_class($block));
+              //if (get_class($block) == "Redstone") {
+            }
+        }
+
 
         if($blockClicked->isTransparent() === \false and $face !== Vector3::SIDE_DOWN){
             $faces = [
@@ -63,7 +79,7 @@ class Redstone extends Transparent {
             $this->getLevel()->setBlock($blockReplace, $this, \true, \true);
 
             return \true;
-        }elseif($below->isTransparent() === \false or $below->getId() === self::FENCE or $below->getId() === self::COBBLESTONE_WALL){
+        }elseif($below->isTransparent() === \false or $below->getId() === self::FENCE or $below->getId() === self::COBBLESTONE_WALL or $below->getId() === self::REDSTONE_WIRE){
             $this->meta = 0;
             $this->getLevel()->setBlock($blockReplace, $this, \true, \true);
 
@@ -73,7 +89,52 @@ class Redstone extends Transparent {
         return \false;
     }
 
-    public function deactivateRedstone() {
+    public function onScheduledUpdate() : void{
+      $this->$ticksSinceSignalUpdate += 1;
+      if($this->$ticksSinceSignalUpdate > 1){
+        RedstoneX::setInactive($this);
+      }
+
+      $this->activateRedstone();
+
+      RedstoneX::consoleDebug($signalStrength);
+    }
+
+    public function setSignalStrength(int $strength) : void{
+      if($this->$ticksSinceSignalUpdate >= 1 || $strength > $signalStrength){
+        $this->$ticksSinceSignalUpdate = 0;
+        RedstoneX::setRedstoneActivity($this, $signalStrength);
+      }
+    }
+
+    public function activateRedstone($trigger = \false){
+      RedstoneX::consoleDebug("§aUpdating neighbours...");
+
+      $babyStrength = RedstoneX::getRedstoneActivity($this)-1;
+      if($babyStrength < 0){
+        return;
+      }
+      // We check each neighbouring block
+      for ($x = $this->getX() - 1; $x <= $this->getX() + 1; $x++) {
+          for ($y = $this->getY() - 1; $y <= $this->getY() + 1; $y++) {
+              $block = $this->getLevel()->getBlock(new Vector3($x, $y, $this->getZ()));
+              if ($block != $trigger and $block != $this and $block instanceof Redstone) {
+                  RedstoneX::consoleDebug("§aFound one! setting s. strength to $babyStrength");
+                  RedstoneX::setRedstoneActivity($block,$babyStrength);
+                  $block->activateRedstone($this);
+              }
+            }
+        }
+    }
+
+    /**
+    * @return int 0-15
+    */
+    public function getLightLevel() : int{
+      return RedstoneX::getRedstoneActivity($this);
+    }
+
+    /*public function deactivateRedstone() {
         RedstoneX::consoleDebug("§aDEACTIVING (???)");
 
         $signal = false;
@@ -143,7 +204,7 @@ class Redstone extends Transparent {
                     RedstoneX::consoleDebug("nothing found.");
                 }
             }
-        }*/
+        }
 
         for ($z = $this->getZ() - 1; $z <= $this->getZ() + 1; $z++) {
             for ($y = $this->getY() - 1; $y <= $this->getY() + 1; $y++) {
@@ -158,7 +219,7 @@ class Redstone extends Transparent {
                 }
             }
         }
-    }
+    }*/
 
     public function getHardness(): float {
         return 0.2;

@@ -72,7 +72,7 @@ class RedstoneTorch extends \pocketmine\block\RedstoneTorch {
             5 => Vector3::SIDE_DOWN
         ];
 
-        if($this->getSide($faces[$side])->isTransparent() === \true and !($side === Vector3::SIDE_DOWN and ($below->getId() === self::FENCE or $below->getId() === self::COBBLESTONE_WALL))){
+        if($this->getSide($faces[$side])->isTransparent() === \true and !($side === Vector3::SIDE_DOWN and ($below->getId() === self::FENCE or $below->getId() === self::COBBLESTONE_WALL or $below->getId() === self::REDSTONE_WIRE))){
             $this->getLevel()->useBreakOn($this);
 
             return Level::BLOCK_UPDATE_NORMAL;
@@ -82,7 +82,23 @@ class RedstoneTorch extends \pocketmine\block\RedstoneTorch {
         return $type;
     }
 
-    public function activateRedstone() {
+    public function activateRedstone(){
+      RedstoneX::consoleDebug("§aRedstone torching...");
+
+      for ($x = $this->getX() - 1; $x <= $this->getX() + 1; $x++) {
+          for ($y = $this->getY() - 1; $y <= $this->getY() + 1; $y++) {
+              if ($x != $this->getX()) {
+                  $block = $this->getLevel()->getBlock(new Vector3($x, $y, $this->getZ()));
+                  if ($block instanceof Redstone) {
+                      RedstoneX::consoleDebug("§aFound one! setting s. strength to ".(15));
+                      RedstoneX::setRedstoneActivity($block, 15);
+                  }
+              }
+          }
+      }
+    }
+
+    /*public function activateRedstone() {
         RedstoneX::consoleDebug("§aACTIVATING (redstone wire by torch)");
         for($x = $this->getX()-1; $x <= $this->getX()+1; $x++) {
             if($x != $this->getX()) {
@@ -122,5 +138,5 @@ class RedstoneTorch extends \pocketmine\block\RedstoneTorch {
                 }
             }
         }
-    }
+    }*/
 }

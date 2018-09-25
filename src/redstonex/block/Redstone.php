@@ -23,7 +23,9 @@ class Redstone extends Transparent {
     /** @var $meta */
     public $meta = 0;
 
-    public $ticksSinceSignalUpdate = 0;
+    protected static $id_incrementer = 0;
+
+    protected $UID;
 
     /**
      * Redstone constructor.
@@ -31,6 +33,8 @@ class Redstone extends Transparent {
      */
     public function __construct($meta = 0) {
         parent::__construct($this->id, $meta, $this->getName(), RedstoneX::REDSTONE_ITEM);
+        $this->UID = self::$id_incrementer;
+        self::$id_incrementer++;
     }
 
     /**
@@ -53,7 +57,12 @@ class Redstone extends Transparent {
         return $type;
     }
 
+    public function isRedstoneAble(){
+      return \true;
+    }
+/*
     public function place(Item $item, Block $blockReplace, Block $blockClicked, int $face, Vector3 $facePos, Player $player = \null) : bool{
+        RedstoneX::consoleDebug("Just placed redstone");
         $below = $this->getSide(Vector3::SIDE_DOWN);
 
         $foundRedstone = \false;
@@ -61,13 +70,16 @@ class Redstone extends Transparent {
             for ($y = $this->getY() - 1; $y <= $this->getY() + 1; $y++) {
               $block = $this->getLevel()->getBlock(new Vector3($x, $y, $this->getZ()));
 
-              RedstoneX::consoleDebug(get_class($block));
-              //if (get_class($block) == "Redstone") {
+              if ($block instanceof Redstone) {
+                $foundRedstone = \true;
+              }
             }
         }
 
-
-        if($blockClicked->isTransparent() === \false and $face !== Vector3::SIDE_DOWN){
+        if(!$foundRedstone){
+          $this->meta = 0;
+          $this->getLevel()->setBlock($blockReplace, $this, \true, \true);
+        }elseif($blockClicked->isTransparent() === \false and $face !== Vector3::SIDE_DOWN){
             $faces = [
                 Vector3::SIDE_UP => 5,
                 Vector3::SIDE_NORTH => 4,
@@ -87,139 +99,46 @@ class Redstone extends Transparent {
         }
 
         return \false;
-    }
+    }*/
 
-    public function onScheduledUpdate() : void{
-      $this->$ticksSinceSignalUpdate += 1;
-      if($this->$ticksSinceSignalUpdate > 1){
-        RedstoneX::setInactive($this);
-      }
-
-      $this->activateRedstone();
-
-      RedstoneX::consoleDebug($signalStrength);
-    }
-
-    public function setSignalStrength(int $strength) : void{
-      if($this->$ticksSinceSignalUpdate >= 1 || $strength > $signalStrength){
-        $this->$ticksSinceSignalUpdate = 0;
-        RedstoneX::setRedstoneActivity($this, $signalStrength);
-      }
-    }
-
-    public function activateRedstone($trigger = \false){
+    public function activateRedstone($powerId = -1){
       RedstoneX::consoleDebug("§aUpdating neighbours...");
 
-      $babyStrength = RedstoneX::getRedstoneActivity($this)-1;
+      $power = $this->meta;
+      $babyStrength = $power-1;
+      if(RedstoneX::$redstoneMaxPower)
+        $babyStrength = 15;
+
       if($babyStrength < 0){
-        return;
+        $babyStrength = 0;
       }
       // We check each neighbouring block
-      for ($x = $this->getX() - 1; $x <= $this->getX() + 1; $x++) {
-          for ($y = $this->getY() - 1; $y <= $this->getY() + 1; $y++) {
-              $block = $this->getLevel()->getBlock(new Vector3($x, $y, $this->getZ()));
-              if ($block != $trigger and $block != $this and $block instanceof Redstone) {
-                  RedstoneX::consoleDebug("§aFound one! setting s. strength to $babyStrength");
-                  RedstoneX::setRedstoneActivity($block,$babyStrength);
-                  $block->activateRedstone($this);
-              }
-            }
+
+      $faces = [
+          0 => Vector3::SIDE_DOWN,
+          1 => Vector3::SIDE_WEST,
+          2 => Vector3::SIDE_EAST,
+          3 => Vector3::SIDE_NORTH,
+          4 => Vector3::SIDE_SOUTH,
+      ];
+
+      foreach ($faces as $face) {
+        $block = $this->getLevel()->getBlock($this->getSide($face));
+        if ($powerId != $this->UID and $block instanceof Redstone) {
+            RedstoneX::consoleDebug("§aFound one! setting signal strength to $babyStrength ($power)");
+            $block->getLevel()->setBlock($block->asVector3(), new Redstone($babyStrength));
+            $block->activateRedstone($this->UID);
         }
+      }
+
     }
 
     /**
     * @return int 0-15
     */
     public function getLightLevel() : int{
-      return RedstoneX::getRedstoneActivity($this);
+      return 10;//RedstoneX::getRedstoneActivity($this);
     }
-
-    /*public function deactivateRedstone() {
-        RedstoneX::consoleDebug("§aDEACTIVING (???)");
-
-        $signal = false;
-        for ($x = $this->getX() - 1; $x <= $this->getX() + 1; $x++) {
-            for ($y = $this->getY() - 1; $y <= $this->getY() + 1; $y++) {
-                if ($x != $this->getX()) {
-                    $block = $this->getLevel()->getBlock(new Vector3($x, $y, $this->getZ()));
-                    if (RedstoneX::isActive($block)) {
-                        $signal = true;
-                    }
-                }
-            }
-        }
-
-        if (RedstoneX::isActive($this->getLevel()->getBlock(new Vector3($this->getX(), $this->getY() + 1, $this->getZ())), $this->getDamage())) {
-            $signal = true;
-        }
-
-        for ($z = $this->getZ() - 1; $z <= $this->getZ() + 1; $z++) {
-            for ($y = $this->getY() - 1; $y <= $this->getY() + 1; $y++) {
-                if ($z != $this->getZ()) {
-                    $block = $this->getLevel()->getBlock(new Vector3($this->getX(), $this->getY(), $z));
-                    if (RedstoneX::isActive($block)) {
-                        $signal = true;
-                    }
-                }
-            }
-        }
-
-        if ($signal === false) {
-            if (RedstoneX::isActive($this)) {
-                RedstoneX::setInactive($this);
-            }
-            RedstoneX::consoleDebug("§aDEACTIVED BLOCK!");
-        }
-    }
-
-    public function activateRedstone() {
-
-        if ($this->meta < 1) return;
-
-        RedstoneX::consoleDebug("ACTIVATING (redstone wire by redstone wire)");
-
-        for ($x = $this->getX() - 1; $x <= $this->getX() + 1; $x++) {
-            for ($y = $this->getY() - 1; $y <= $this->getY() + 1; $y++) {
-                if ($x != $this->getX()) {
-                    $block = $this->getLevel()->getBlock(new Vector3($x, $y, $this->getZ()));
-                    if ($block->getId() == RedstoneX::REDSTONE_WIRE || $block instanceof Redstone) {
-                        RedstoneX::setActive($block, intval($this->getDamage() - 1));
-                        RedstoneX::consoleDebug("ACTIVATING found");
-                    } else {
-                        RedstoneX::consoleDebug("nothing found.");
-                    }
-                }
-            }
-        }
-
-        /* WHY ?
-         *
-         * for ($y = $this->getY(); $y <= $this->getY() + 1; $y++) {
-            if ($y != $this->getY()) {
-                $block = $this->getLevel()->getBlock(new Vector3($this->getX(), $y, $this->getZ()));
-                if ($block->getId() == RedstoneX::REDSTONE_WIRE || $block instanceof Redstone) {
-                    RedstoneX::setActive($block, intval($this->getDamage() - 1));
-                    RedstoneX::consoleDebug("ACTIVATING found");
-                } else {
-                    RedstoneX::consoleDebug("nothing found.");
-                }
-            }
-        }
-
-        for ($z = $this->getZ() - 1; $z <= $this->getZ() + 1; $z++) {
-            for ($y = $this->getY() - 1; $y <= $this->getY() + 1; $y++) {
-                if ($z != $this->getZ()) {
-                    $block = $this->getLevel()->getBlock(new Vector3($this->getX(), $y, $z));
-                    if ($block->getId() == RedstoneX::REDSTONE_WIRE || $block instanceof Redstone) {
-                        RedstoneX::setActive($block, intval($this->getDamage() - 1));
-                        RedstoneX::consoleDebug("ACTIVATING found");
-                    } else {
-                        RedstoneX::consoleDebug("nothing found.");
-                    }
-                }
-            }
-        }
-    }*/
 
     public function getHardness(): float {
         return 0.2;

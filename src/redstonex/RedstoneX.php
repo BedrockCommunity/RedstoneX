@@ -12,7 +12,10 @@ use redstonex\block\Redstone;
 use redstonex\block\RedstoneLamp;
 use redstonex\block\RedstoneLampUnlit;
 use redstonex\block\RedstoneTorch;
+use redstonex\block\RedstoneTorchUnlit;
 use redstonex\event\EventListener;
+use redstonex\commands\RedstonePowaa;
+use pocketmine\Server as PMServer;
 
 /**
  * Class RedstoneX
@@ -30,10 +33,14 @@ class RedstoneX extends PluginBase implements RedstoneData {
     /** @var bool $debug */
     private static $debug = true;
 
+    /** @var bool $redstoneMaxPower */
+    public static $redstoneMaxPower = false;
+
     public function onEnable() {
         self::$instance = $this;
         $this->registerBlocks();
         $this->registerEvents();
+        $this->registerCommands();
     }
 
     public function registerEvents() {
@@ -46,6 +53,7 @@ class RedstoneX extends PluginBase implements RedstoneData {
         $blocks = [
             new Redstone(0),
             new RedstoneTorch(0),
+            new RedstoneTorchUnlit(0),
             new RedstoneLamp(0),
             new RedstoneLampUnlit(0),
             new Lever(0)
@@ -71,6 +79,15 @@ class RedstoneX extends PluginBase implements RedstoneData {
         foreach ($blocks as $block) {
             Block::registerBlock($block, true);
         }
+    }
+
+    public function registerCommands(){
+        RedstoneX::consoleDebug("Registering Commands...");
+  		  $cmds = [
+    			new RedstonePowaa("redstonePowaa"),
+    		];
+
+    		PMServer::getInstance()->getCommandMap()->registerAll("redstonex", $cmds);
     }
 
     /**
@@ -115,14 +132,12 @@ class RedstoneX extends PluginBase implements RedstoneData {
     public static function setRedstoneActivity(Block $block, int $active = 15) {
         switch ($block->getId()) {
             case self::REDSTONE_WIRE:
-                if($block->getDamage() < $active) {
-                    $block->getLevel()->setBlock($block->asVector3(), new Redstone(RedstoneX::REDSTONE_WIRE, $active, "Redstone Wire", RedstoneX::REDSTONE_ITEM));
-                }
+                $block->getLevel()->setBlock($block->asVector3(), new Redstone(RedstoneX::REDSTONE_WIRE, $active, "Redstone Wire", RedstoneX::REDSTONE_ITEM));
                 return;
             default:
-                if($block->getDamage() < $active) {
+                #if($block->getDamage() < $active) {
                     $block->getLevel()->setBlock($block->asVector3(), $block, true, true);
-                }
+                #}
                 return;
         }
     }
@@ -134,11 +149,12 @@ class RedstoneX extends PluginBase implements RedstoneData {
     public static function getRedstoneActivity(Block $block): int {
         switch ($block->getId()) {
             case self::REDSTONE_WIRE:
-                return $block->getDamage();
+                return $block->meta;
             case self::REDSTONE_TORCH_ACTIVE:
                 return 15;
             default:
                 return 0;
         }
     }
+
 }

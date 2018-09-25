@@ -51,6 +51,7 @@ class EventListener implements Listener {
                 $event->setCancelled(true);
                 if ($block instanceof Redstone) {
                     RedstoneX::consoleDebug("Placing block (Redstone Wire) (redstonex block)");
+                    //$block->place();
                     $block->activateRedstone();
                 } else {
                     RedstoneX::consoleDebug("Placing block (Redstone Wire) (pmmp block)");
@@ -58,4 +59,5 @@ class EventListener implements Listener {
                 return;
         }
     }
+
 }

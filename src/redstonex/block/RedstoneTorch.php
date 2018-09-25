@@ -8,6 +8,11 @@ use pocketmine\item\Tool;
 use pocketmine\level\Level;
 use pocketmine\math\Vector3;
 use redstonex\RedstoneX;
+use pocketmine\block\{
+	Air, Block, Transparent
+};
+use pocketmine\item\Item;
+use pocketmine\Player;
 
 /**
  * Class RedstoneTorch
@@ -31,7 +36,7 @@ class RedstoneTorch extends \pocketmine\block\RedstoneTorch {
      * @param bool $activated
      */
     public function setActivated(bool $activated = true) {
-        $activated ? $this->id = RedstoneX::REDSTONE_TORCH_ACTIVE : $this->id = RedstoneX::REDSTONE_LAMP_INACTIVE;
+        $activated ? $this->id = RedstoneX::REDSTONE_TORCH_ACTIVE : $this->id = RedstoneX::REDSTONE_TORCH_INACTIVE;
     }
 
     /**
@@ -41,11 +46,8 @@ class RedstoneTorch extends \pocketmine\block\RedstoneTorch {
         return $this->id === RedstoneX::REDSTONE_TORCH_ACTIVE;
     }
 
-    /**
-     * @return int
-     */
-    public function getToolType(): int {
-        return Tool::TYPE_NONE;
+    public function toggleTorch(){
+        $this->setActivated(!$this->isActivated());
     }
 
     /**
@@ -69,7 +71,6 @@ class RedstoneTorch extends \pocketmine\block\RedstoneTorch {
             2 => Vector3::SIDE_EAST,
             3 => Vector3::SIDE_NORTH,
             4 => Vector3::SIDE_SOUTH,
-            5 => Vector3::SIDE_DOWN
         ];
 
         if($this->getSide($faces[$side])->isTransparent() === \true and !($side === Vector3::SIDE_DOWN and ($below->getId() === self::FENCE or $below->getId() === self::COBBLESTONE_WALL or $below->getId() === self::REDSTONE_WIRE))){
@@ -82,61 +83,47 @@ class RedstoneTorch extends \pocketmine\block\RedstoneTorch {
         return $type;
     }
 
-    public function activateRedstone(){
-      RedstoneX::consoleDebug("§aRedstone torching...");
+    public function activateRedstone($power = 15){
+      $_un_ = ($power === 0) ? "un" : "";
+      RedstoneX::consoleDebug("§aRedstone ".$_un_."torching...");
 
-      for ($x = $this->getX() - 1; $x <= $this->getX() + 1; $x++) {
-          for ($y = $this->getY() - 1; $y <= $this->getY() + 1; $y++) {
-              if ($x != $this->getX()) {
-                  $block = $this->getLevel()->getBlock(new Vector3($x, $y, $this->getZ()));
-                  if ($block instanceof Redstone) {
-                      RedstoneX::consoleDebug("§aFound one! setting s. strength to ".(15));
-                      RedstoneX::setRedstoneActivity($block, 15);
-                  }
-              }
-          }
+
+      $faces = [
+          0 => Vector3::SIDE_DOWN,
+          1 => Vector3::SIDE_WEST,
+          2 => Vector3::SIDE_EAST,
+          3 => Vector3::SIDE_NORTH,
+          4 => Vector3::SIDE_SOUTH,
+      ];
+
+      foreach($faces as $face){
+        $block = $this->getLevel()->getBlock($this->getSide($face));
+        if ($block instanceof Redstone) {
+            RedstoneX::consoleDebug("§aFound one! setting s. strength to ".($power));
+            RedstoneX::setRedstoneActivity($block, $power);
+            $block->activateRedstone();
+        } elseif ($block instanceof RedstoneTorch) {
+            RedstoneX::consoleDebug("§aFound another torch ! Toggling it");
+            $block->toggleTorch();
+        }
       }
+
     }
 
-    /*public function activateRedstone() {
-        RedstoneX::consoleDebug("§aACTIVATING (redstone wire by torch)");
-        for($x = $this->getX()-1; $x <= $this->getX()+1; $x++) {
-            if($x != $this->getX()) {
-                $block = $this->getLevel()->getBlock(new Vector3($x, $this->getY(), $this->getZ()));
-                if(RedstoneX::isRedstone($block) || $block instanceof Redstone || $block->getId() == RedstoneX::REDSTONE_WIRE) {
-                    RedstoneX::setActive($block, 15);
-                    RedstoneX::consoleDebug("§aACTIVATING found");
-                }
-                else {
-                    RedstoneX::consoleDebug("nothing found.");
-                }
-            }
-        }
+      /**
+     * @param Item $item
+     * @param Player|null $player
+     * @return bool
+     */
+    public function onBreak(Item $item, Player $player = null): bool{
+    	$this->activateRedstone(0);
+      $this->getLevel()->setBlock($this, new Air(), true, true);
 
-        for($y = $this->getY(); $y <= $this->getY()+1; $y++) {
-            if($y != $this->getY()) {
-                $block = $this->getLevel()->getBlock(new Vector3($this->getX(), $y, $this->getZ()));
-                if(RedstoneX::isRedstone($block) || $block instanceof Redstone || $block->getId() == RedstoneX::REDSTONE_WIRE) {
-                    RedstoneX::setActive($block, 15);
-                    RedstoneX::consoleDebug("§aACTIVATING found");
-                }
-                else {
-                    RedstoneX::consoleDebug("nothing found.");
-                }
-            }
-        }
+    	return true;
+    }
 
-        for($z = $this->getZ()-1; $z <= $this->getZ()+1; $z++) {
-            if($z != $this->getZ()) {
-                $block = $this->getLevel()->getBlock(new Vector3($this->getX(), $this->getY(), $z));
-                if(RedstoneX::isRedstone($block) || $block instanceof Redstone || $block->getId() == RedstoneX::REDSTONE_WIRE) {
-                    RedstoneX::setActive($block, 15);
-                    RedstoneX::consoleDebug("§aACTIVATING found");
-                }
-                else {
-                    RedstoneX::consoleDebug("nothing found.");
-                }
-            }
-        }
-    }*/
+    public function isRedstoneAble(){
+      return \true;
+    }
+
 }
